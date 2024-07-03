@@ -60,25 +60,64 @@ INSERT INTO Enrollments (enrollment_id, student_id, course_id, enrollment_date) 
 (10, 7, 103, '2023-09-01');
 
 --(1) Find all students enrolled in the Math course.
-SELECT *
-FROM students s 
-	JOIN enrollments e ON s.student_id=e.student_id 
-	JOIN courses c ON c.course_id=e.course_id
-WHERE course_name='Math';
+	--using subquery
+	SELECT *
+		FROM students
+		WHERE student_id IN (
+			SELECT student_id
+			FROM enrollments
+			WHERE course_id = (
+				SELECT course_id
+				FROM courses
+				WHERE course_name='Math'
+			)
+		);
+
+	--using JOIN
+	SELECT *
+	FROM students s 
+		JOIN enrollments e ON s.student_id=e.student_id 
+		JOIN courses c ON c.course_id=e.course_id
+	WHERE course_name='Math';
 
 --(2) List all courses taken by students named Bob.
-SELECT course_name
-FROM courses c
-JOIN enrollments e ON c.course_id=e.course_id
-JOIN students s ON s.student_id=e.student_id
-WHERE student_name='Bob';
+	--using subquery
+	SELECT course_name
+	FROM Courses
+	WHERE course_id IN (
+	    SELECT e.course_id
+	    FROM Enrollments e
+	    WHERE e.student_id IN (
+	        SELECT s.student_id
+	        FROM Students s
+	        WHERE s.student_name = 'Bob'
+	    )
+	);
+
+	--using JOIN
+	SELECT course_name
+	FROM courses c
+	JOIN enrollments e ON c.course_id=e.course_id
+	JOIN students s ON s.student_id=e.student_id
+	WHERE student_name='Bob';
 
 --(3) Find the names of students who are enrolled in more than one course.
-SELECT student_name
-FROM students s
-JOIN enrollments e ON s.student_id=e.student_id
-GROUP BY e.student_id, student_name
-HAVING COUNT(e.student_id)>1;
+	--using Subquery
+	SELECT student_name
+	FROM Students
+	WHERE student_id IN (
+	    SELECT student_id
+	    FROM Enrollments
+	    GROUP BY student_id
+	    HAVING COUNT(course_id) > 1
+	);
+
+	--using JOIN
+	SELECT student_name
+	FROM students s
+	JOIN enrollments e ON s.student_id=e.student_id
+	GROUP BY e.student_id, student_name
+	HAVING COUNT(e.student_id)>1;
 
 --(4) List all students who are in Grade A (grade_id = 1).
 SELECT *
@@ -86,18 +125,39 @@ FROM students
 WHERE student_grade_id=1;
 
 --(5) Find the number of students enrolled in each course.
-SELECT course_name, count(e.course_id) as number_of_student_enrolled
-FROM courses c
-	JOIN enrollments e ON c.course_id=e.course_id
-GROUP BY e.course_id, course_name;
+	--using subquery
+	SELECT course_name, (
+	    SELECT COUNT(*)
+	    	FROM Enrollments e
+	    	WHERE e.course_id = c.course_id
+		) AS number_of_student_enrolled
+	FROM Courses c;
+
+	--using JOIN
+	SELECT course_name, count(e.course_id) as number_of_student_enrolled
+	FROM courses c
+		JOIN enrollments e ON c.course_id=e.course_id
+	GROUP BY e.course_id, course_name;
 
 --(6) Retrieve the course with the highest number of enrollments.
-SELECT course_name, count(e.course_id) as number_of_enrollment
-FROM courses c
-	JOIN enrollments e ON c.course_id=e.course_id
-GROUP BY e.course_id, course_name
-	ORDER BY number_of_enrollment DESC
-	LIMIT 1;
+	--using Subquery
+	SELECT course_id, course_name
+	FROM Courses
+	WHERE course_id = (
+	    SELECT course_id
+	    FROM Enrollments
+	    GROUP BY course_id
+	    ORDER BY COUNT(student_id) DESC
+	    LIMIT 1
+	);
+
+	--using JOIN
+	SELECT e.course_id, course_name, count(e.course_id) as number_of_enrollment
+	FROM courses c
+		JOIN enrollments e ON c.course_id=e.course_id
+	GROUP BY e.course_id, course_name
+		ORDER BY number_of_enrollment DESC
+		LIMIT 1;
 
 --(7) List students who are enrolled in all available courses.
 SELECT s.student_id, s.student_name
@@ -120,16 +180,49 @@ WHERE student_id NOT IN (
 );
 
 --(9) Retrieve the average age of students enrolled in the Science course.
-SELECT AVG(s.student_age) AS average_age
-FROM Students s
-JOIN Enrollments e ON s.student_id = e.student_id
-JOIN Courses c ON e.course_id = c.course_id
-WHERE c.course_name = 'Science';
+	--using subquery
+	SELECT AVG(student_age) AS average_age
+	FROM Students
+	WHERE student_id IN (
+	    SELECT student_id
+	    FROM Enrollments
+	    WHERE course_id = (
+	        SELECT course_id
+	        FROM Courses
+	        WHERE course_name = 'Science'
+	    )
+	);
+
+	--using JOIN
+	SELECT AVG(s.student_age) AS average_age
+	FROM Students s
+	JOIN Enrollments e ON s.student_id = e.student_id
+	JOIN Courses c ON e.course_id = c.course_id
+	WHERE c.course_name = 'Science';
 
 --(10) Find the grade of students enrolled in the History course.
-SELECT DISTINCT student_name, grade_name
-FROM students s
-	JOIN enrollments e ON s.student_id=e.student_id
-JOIN courses c ON c.course_id=e.course_id
-JOIN grades g ON g.grade_id=s.student_grade_id
-	WHERE course_name='History';
+	--using subquery
+	SELECT student_name, (
+    SELECT grade_name
+    FROM Grades
+    WHERE grade_id = Students.student_grade_id
+	) AS grade_name
+	FROM Students
+	WHERE student_id IN (
+	    SELECT student_id
+	    FROM Enrollments
+	    WHERE course_id = (
+	        SELECT course_id
+	        FROM Courses
+	        WHERE course_name = 'History'
+	    )
+	);
+
+
+	--using JOIN
+	SELECT DISTINCT student_name, grade_name
+	FROM students s
+		JOIN enrollments e ON s.student_id=e.student_id
+	JOIN courses c ON c.course_id=e.course_id
+	JOIN grades g ON g.grade_id=s.student_grade_id
+		WHERE course_name='History';
